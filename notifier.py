@@ -53,7 +53,7 @@ def get_transactions():
   with open(expense_file_path, "w+") as fp:
     json.dump(expense_dict, fp, indent=2);
 
-#  sendText(expense_dict);
+  sendText(expense_dict);
 
 
 def sendText(data):

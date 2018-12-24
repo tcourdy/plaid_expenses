@@ -1,4 +1,4 @@
-Simple python script that uses the plaid api and the twilio api that sends a sms message with the amount of money you have spent broken down by category.  Note that you will need a twilio and plaid developer account to use this
+Simple python script that uses the plaid api and the twilio api to send an sms message with the amount of money you have spent broken down by category (keeps a running total for each month).  Note that you will need a twilio and plaid developer account to use this.
 
 Requirements:
 - python3
