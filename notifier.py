@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 from twilio.rest import Client
 
 
-with open(os.path.dirname(os.path.realpath(__file__)) + "/credentials.json", "r") as creds_file:
+EXPENSE_FILE_DIR = os.path.dirname(os.path.realpath(__file__));
+
+with open(EXPENSE_FILE_DIR + "/credentials.json", "r") as creds_file:
   creds_dict = json.load(creds_file);
 
 PLAID_CLIENT_ID = creds_dict["plaid_client_id"];
@@ -19,15 +21,13 @@ TWILIO_AUTH_TOKEN = creds_dict["twilio_auth_token"];
 TWILIO_PHONE_NUMBER = creds_dict["twilio_phone_number"];
 MY_PHONE_NUMBER = creds_dict["my_phone_number"];
 
-EXPENSE_FILE_DIR = os.path.dirname(os.path.realpath(__file__));
-
 client = plaid.Client(PLAID_CLIENT_ID, PLAID_SECRET, PLAID_PUBLIC_KEY, PLAID_ENVIRONMENT)
 with open("access_token.txt", "r") as f:
   ACCESS_TOKEN = f.read()
 
 def get_transactions():
   end_date = datetime.now()
-  expense_file_path = EXPENSE_FILE_DIR + end_date.strftime("%B_%Y") + ".json";
+  expense_file_path = EXPENSE_FILE_DIR + "/" + end_date.strftime("%B_%Y") + ".json";
 
   try:
     expense_file = open(expense_file_path, "r")
