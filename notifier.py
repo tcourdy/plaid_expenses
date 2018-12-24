@@ -22,7 +22,7 @@ TWILIO_PHONE_NUMBER = creds_dict["twilio_phone_number"];
 MY_PHONE_NUMBER = creds_dict["my_phone_number"];
 
 client = plaid.Client(PLAID_CLIENT_ID, PLAID_SECRET, PLAID_PUBLIC_KEY, PLAID_ENVIRONMENT)
-with open("access_token.txt", "r") as f:
+with open(EXPENSE_FILE_DIR + "/access_token.txt", "r") as f:
   ACCESS_TOKEN = f.read()
 
 def get_transactions():
