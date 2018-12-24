@@ -13,8 +13,8 @@ Requirements:
   "twilio_auth_token": "",
   "twilio_phone_number": "",
   "my_phone_number": ""
-}
-```
+}```
+
 
 After installing the requirements and setting up your credentials.json you will need to run `index.py` in order to link your bank account with plaid.
 
