@@ -8,10 +8,12 @@ from datetime import datetime, timedelta
 from twilio.rest import Client
 
 
-parser = argparse.ArgumentParser(usage="If you don't provided --monthly_total flag then the program will attempt to get the previous day's transactions and send them via sms text")
-parser.add_argument("--monthly_total",
-                    help="print month to date totals to the command line and exit",
+parser = argparse.ArgumentParser(usage="If no flags are passed this script will get all of the current months transactions and send them via sms")
+
+parser.add_argument("--print_totals",
+                    help="don't send an sms and instead print transactions to the console",
                     action="store_true")
+
 args = parser.parse_args();
 
 EXPENSE_FILE_DIR = os.path.dirname(os.path.realpath(__file__));
@@ -35,37 +37,6 @@ GRAND_TOTAL_KEY = "Grand Total";
 client = plaid.Client(PLAID_CLIENT_ID, PLAID_SECRET, PLAID_PUBLIC_KEY, PLAID_ENVIRONMENT)
 with open(EXPENSE_FILE_DIR + "/access_token.txt", "r") as f:
   ACCESS_TOKEN = f.read()
-
-def get_transactions():
-  """
-  Gets yesterdays transactions and adds them to the running total file if it exists.
-  Otherwise it creates the file and adds the transaction amounts by category to the file.
-  Also sends a text to the user notifying them of the category totals
-  """
-  end_date = datetime.now()
-  expense_file_path = EXPENSE_FILE_DIR + "/" + end_date.strftime("%B_%Y") + ".json";
-
-  try:
-    expense_file = open(expense_file_path, "r")
-    expense_dict = json.load(expense_file);
-    expense_file.close();
-  except FileNotFoundError:
-    expense_dict = {};
-
-  start_date = end_date - timedelta(days=1)
-  response = client.Transactions.get(ACCESS_TOKEN,
-                                     start_date=start_date.strftime("%Y-%m-%d"),
-                                     end_date=end_date.strftime("%Y-%m-%d"),
-                                     count=500)
-
-  transactions = response['transactions']
-
-  expense_dict = parse_transactions(expense_dict, transactions);
-
-  with open(expense_file_path, "w+") as fp:
-    json.dump(expense_dict, fp, indent=2);
-
-  send_text(expense_dict);
 
 def parse_transactions(expense_dict, transactions):
   """ Returns an ordered dictionary sorted by category amount (with the exception of the grand total key)"""
@@ -112,7 +83,8 @@ def pretty_print_for_sms(d):
 def get_monthly_totals():
   """Helper function that will return month to date totals"""
   current_date = datetime.now();
-  days_in_month = calendar.monthrange(current_date.year, current_date.month); #returns a tuple of (weekday number of first day of month, num_days_in_month)
+  #returns a tuple of (weekday number of first day of month, num_days_in_month)
+  days_in_month = calendar.monthrange(current_date.year, current_date.month);
   start_date = datetime(current_date.year, current_date.month, 1);
   end_date = datetime(current_date.year, current_date.month, days_in_month[1])
   response = client.Transactions.get(ACCESS_TOKEN,
@@ -122,17 +94,13 @@ def get_monthly_totals():
 
   transactions = response['transactions']
   expense_dict = parse_transactions({}, transactions)
-  print("Transactions for %s -  %s" %(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
-  print(json.dumps(expense_dict, indent=2))
 
+  if args.print_totals:
+    print("Transactions for %s -  %s" %(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
+    print(json.dumps(expense_dict, indent=2))
+  else:
+    send_text(expense_dict)
 
-#not used currently
-def list_categories():
-  response = client.Categories.get()
-  print(json.dumps(response, indent=2))
 
 if __name__ == "__main__":
-  if args.monthly_total:
-    get_monthly_totals()
-  else:
-    get_transactions()
+  get_monthly_totals()
