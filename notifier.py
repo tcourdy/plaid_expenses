@@ -43,7 +43,8 @@ EMAIL_ADDRESS_FROM = creds_dict["email_address_from"];
 EMAIL_ADDRESS_FROM_PASSWORD = creds_dict["email_address_from_password"];
 EMAIL_ADDRESS_TO = creds_dict["email_address_to"];
 
-GRAND_TOTAL_KEY = "Grand Total";
+NET_TOTAL_KEY = "Net Total";
+TOTAL_EXPENSES_KEY = "Total Expenses";
 
 client = plaid.Client(PLAID_CLIENT_ID, PLAID_SECRET, PLAID_PUBLIC_KEY, PLAID_ENVIRONMENT)
 with open(EXPENSE_FILE_DIR + "/access_token.txt", "r") as f:
@@ -78,8 +79,10 @@ def parse_transactions(transactions):
   """ Returns an ordered dictionary sorted by category amount (with the exception of the grand total key)"""
   expense_dict = {}
   grand_total = 0
+  total_spent = 0
   for t in transactions:
     grand_total += t['amount']
+    total_spent += t['amount'] if t['amount'] > 0 else 0
     category = ""
     for c in t['category']:
       category += c + ":"
@@ -89,11 +92,8 @@ def parse_transactions(transactions):
       expense_dict[category] = t['amount'];
 
   expense_dict = sort_dict_by_value(expense_dict)
-
-  if GRAND_TOTAL_KEY in expense_dict:
-    expense_dict[GRAND_TOTAL_KEY] += grand_total
-  else:
-    expense_dict[GRAND_TOTAL_KEY] = grand_total
+  expense_dict[TOTAL_EXPENSES_KEY] = total_spent
+  expense_dict[NET_TOTAL_KEY] = grand_total
 
   return expense_dict
 
