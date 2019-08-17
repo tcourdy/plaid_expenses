@@ -42,6 +42,7 @@ MY_PHONE_NUMBER = creds_dict["my_phone_number"];
 EMAIL_ADDRESS_FROM = creds_dict["email_address_from"];
 EMAIL_ADDRESS_FROM_PASSWORD = creds_dict["email_address_from_password"];
 EMAIL_ADDRESS_TO = creds_dict["email_address_to"];
+ACCOUNT_ID = creds_dict["account_id"];
 
 NET_TOTAL_KEY = "Net Total";
 TOTAL_EXPENSES_KEY = "Total Expenses";
@@ -61,6 +62,7 @@ def get_monthly_totals():
   response = client.Transactions.get(ACCESS_TOKEN,
                                      start_date=start_date.strftime("%Y-%m-%d"),
                                      end_date=end_date.strftime("%Y-%m-%d"),
+                                     account_ids=[ACCOUNT_ID],
                                      count=500)
 
   transactions = response['transactions']
