@@ -6,19 +6,31 @@ import smtplib
 import argparse
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from twilio.rest import Client
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-parser = argparse.ArgumentParser(usage="If you don't use print_totals and no send_method is specified this script will get all of the current months transactions and send them via email")
+
+def valid_date_format(date_str):
+  try:
+    return datetime.strptime(date_str, "%Y-%m-%d")
+  except ValueError:
+    msg = "Not a valid date: '{0}'.".format(date_str)
+    raise argparse.ArgumentTypeError(msg)
+
+parser = argparse.ArgumentParser(description="Program that uses the plaid api to scrape your bank account's transactions.  If you don't use print_totals and no send_method is specified this script will get all of the current months transactions and send them via email.  You may specify a start_date and and end_date to get a specific date range of transactions if you want something other than the current month")
 
 parser.add_argument("--print_totals",
                     help="don't send an sms and instead print transactions to the console",
                     action="store_true")
-parser.add_argument("--send_method",
-                    help="specify either email or sms",
-                    choices=["email", "sms"],
-                    default="email",
+
+parser.add_argument("--start_date",
+                    help="Format YYYY-MM-DD. The start date of the range of transactions you would like.  If start_date is provided but end_date is not then the default end_date will be 30 days from start_date.  If both start_date and end_date are provided start_date must come before end_date",
+                    type=valid_date_format,
+                    action="store")
+
+parser.add_argument("--end_date",
+                    help="Format YYYY-MM-DD. The end date of the range of transactions you would like.  If end_date is provided but start_date is not then by default start_date will be 30 days prior to end_date.  If start_date is provided along with end_date then end_date must be chronologically after start_date",
+                    type=valid_date_format,
                     action="store")
 
 args = parser.parse_args();
@@ -34,11 +46,6 @@ PLAID_SECRET = creds_dict["plaid_secret"];
 PLAID_PRODUCTS = "transactions";
 PLAID_ENVIRONMENT = "development";
 
-TWILIO_SID = creds_dict["twilio_sid"];
-TWILIO_AUTH_TOKEN = creds_dict["twilio_auth_token"];
-TWILIO_PHONE_NUMBER = creds_dict["twilio_phone_number"];
-MY_PHONE_NUMBER = creds_dict["my_phone_number"];
-
 EMAIL_ADDRESS_FROM = creds_dict["email_address_from"];
 EMAIL_ADDRESS_FROM_PASSWORD = creds_dict["email_address_from_password"];
 EMAIL_ADDRESS_TO = creds_dict["email_address_to"];
@@ -52,13 +59,34 @@ with open(EXPENSE_FILE_DIR + "/access_token.txt", "r") as f:
   ACCESS_TOKEN = f.read()
 
 
+
+def check_valid_date_range():
+  if args.start_date and args.end_date:
+    if args.end_date < args.start_date:
+      sys.exit("end_date is before start_date.  Exiting.")
+    elif args.start_date > args.end_date:
+      sys.exit("start_date is after end_date.  Exiting.")
+
+  if args.start_date and not args.end_date:
+    args.end_date = args.start_date + timedelta(days=30)
+
+  if args.end_date and not args.start_date:
+    args.start_date = args.end_date - timedelta(days=30)
+
+
 def get_monthly_totals():
   """Helper function that will return month to date totals"""
-  current_date = datetime.now();
-  #returns a tuple of (weekday number of first day of month, num_days_in_month)
-  days_in_month = calendar.monthrange(current_date.year, current_date.month);
-  start_date = datetime(current_date.year, current_date.month, 1);
-  end_date = datetime(current_date.year, current_date.month, days_in_month[1])
+  # doesn't matter which one we check see check_valid_date_range function
+  if args.start_date:
+    start_date = args.start_date
+    end_date = args.end_date
+  else:
+    current_date = datetime.now();
+    #returns a tuple of (weekday number of first day of month, num_days_in_month)
+    days_in_month = calendar.monthrange(current_date.year, current_date.month);
+    start_date = datetime(current_date.year, current_date.month, 1);
+    end_date = datetime(current_date.year, current_date.month, days_in_month[1])
+
   response = client.Transactions.get(ACCESS_TOKEN,
                                      start_date=start_date.strftime("%Y-%m-%d"),
                                      end_date=end_date.strftime("%Y-%m-%d"),
@@ -104,14 +132,6 @@ def sort_dict_by_value(d):
   """Helper function that sorts by category amount(ie: sort by the values of the dictionary passed in)"""
   return OrderedDict(sorted(d.items(), key=lambda x: x[1]))
 
-def send_sms(data):
-  twilio_client = Client(TWILIO_SID, TWILIO_AUTH_TOKEN);
-  twilio_client.messages.create(
-    body=pretty_print_data(data),
-    from_=TWILIO_PHONE_NUMBER,
-    to=MY_PHONE_NUMBER
-  );
-
 def send_email(data):
   server = smtplib.SMTP('smtp.gmail.com', 587)
   server.starttls()
@@ -137,4 +157,6 @@ def pretty_print_data(d):
   return sms_body
 
 if __name__ == "__main__":
+  if args.start_date or args.end_date:
+    check_valid_date_range()
   get_monthly_totals()
