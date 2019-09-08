@@ -99,11 +99,8 @@ def get_monthly_totals():
   if args.print_totals:
     print("Transactions for %s -  %s" %(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
     print(json.dumps(expense_dict, indent=2))
-  elif args.send_method == "email":
+  else:
     send_email(expense_dict)
-  elif args.send_method == "sms":
-    send_sms(expense_dict)
-
 
 def parse_transactions(transactions):
   """ Returns an ordered dictionary sorted by category amount (with the exception of the grand total key)"""

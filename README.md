@@ -1,4 +1,4 @@
-Simple python script that uses the plaid api and the twilio api to send an sms message with the amount of money you have spent broken down by category (keeps a running total for each month).  Note that you will need a twilio and plaid developer account to use this.
+Simple python script that uses the plaid api to send an sms message with the amount of money you have spent broken down by category (keeps a running total for each month).  Note that you will need a plaid developer account to use this.  I set up a dummy gmail account and turned off secure features in order to successfully send an email from this python script.
 
 Requirements:
 - python3
@@ -9,10 +9,10 @@ Requirements:
   "plaid_client_id": "",
   "plaid_public_key": "",
   "plaid_secret": "",
-  "twilio_sid": "",
-  "twilio_auth_token": "",
-  "twilio_phone_number": "",
-  "my_phone_number": ""
+  "email_address_from": "",
+  "email_address_from_password": "",
+  "email_address_to": "",
+  "account_id": ""
   }
   ```
 
@@ -21,7 +21,7 @@ After installing the requirements and setting up your `credentials.json` you wil
 
 After that you should be able to set `notifier.py` up to run as a daily cron job in order to get daily text messages with the total money you've spent in each category.
 
-Contents of an example sms:
+Contents of an example email:
 ```
 {
   "Department Stores": 5.1,
