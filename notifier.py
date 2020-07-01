@@ -33,6 +33,10 @@ parser.add_argument("--end_date",
                     type=valid_date_format,
                     action="store")
 
+parser.add_argument("--categorize",
+                    help="If this flag is present then the transactions will be grouped by category.  Otherwise transactions will be grouped by shop name",
+                    action="store_true")
+
 args = parser.parse_args();
 
 EXPENSE_FILE_DIR = os.path.dirname(os.path.realpath(__file__));
@@ -94,7 +98,7 @@ def get_monthly_totals():
                                      count=500)
 
   transactions = response['transactions']
-  expense_dict = parse_transactions(transactions)
+  expense_dict = parse_transactions(transactions);
 
   if args.print_totals:
     print("Transactions for %s -  %s" %(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
@@ -110,13 +114,11 @@ def parse_transactions(transactions):
   for t in transactions:
     grand_total += t['amount']
     total_spent += t['amount'] if t['amount'] > 0 else 0
-    category = ""
-    for c in t['category']:
-      category += c + ":"
-    if category in expense_dict:
-      expense_dict[category] += t['amount'];
+
+    if args.categorize:
+      group_by_category(t, expense_dict)
     else:
-      expense_dict[category] = t['amount'];
+      group_by_name(t, expense_dict)
 
   expense_dict = sort_dict_by_value(expense_dict)
   expense_dict[TOTAL_EXPENSES_KEY] = total_spent
@@ -124,6 +126,26 @@ def parse_transactions(transactions):
 
   return expense_dict
 
+def group_by_category(transaction, expense_dict):
+  """Helper function to help group transactions by category"""
+  category = ""
+  if transaction["category"] is not None:
+    for c in transaction["category"]:
+      category += c + ":"
+
+  if category in expense_dict:
+    expense_dict[category] += transaction['amount'];
+  else:
+    expense_dict[category] = transaction['amount'];
+
+# TODO: use a regex to remove dates from names
+def group_by_name(transaction, expense_dict):
+  """Helper function to help group transactions by shop name"""
+  name = transaction["name"] if transaction["name"] is not None else ""
+  if name in expense_dict:
+    expense_dict[name] += transaction['amount'];
+  else:
+    expense_dict[name] = transaction['amount'];
 
 def sort_dict_by_value(d):
   """Helper function that sorts by category amount(ie: sort by the values of the dictionary passed in)"""
