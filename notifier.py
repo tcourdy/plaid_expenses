@@ -1,3 +1,4 @@
+import re
 import plaid
 import json
 import os
@@ -142,6 +143,8 @@ def group_by_category(transaction, expense_dict):
 def group_by_name(transaction, expense_dict):
   """Helper function to help group transactions by shop name"""
   name = transaction["name"] if transaction["name"] is not None else ""
+  # remove any dates or digits in the name
+  name = re.sub(r'(\d*/\d*|\d*)', "", name).lower()
   if name in expense_dict:
     expense_dict[name] += transaction['amount'];
   else:
