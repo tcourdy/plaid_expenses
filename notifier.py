@@ -67,8 +67,6 @@ client = plaid.Client(PLAID_CLIENT_ID, PLAID_SECRET, PLAID_PUBLIC_KEY, PLAID_ENV
 with open(EXPENSE_FILE_DIR + "/access_token.txt", "r") as f:
   ACCESS_TOKEN = f.read()
 
-
-
 def check_valid_date_range():
   if args.start_date and args.end_date:
     if args.end_date < args.start_date:
@@ -81,7 +79,6 @@ def check_valid_date_range():
 
   if args.end_date and not args.start_date:
     args.start_date = args.end_date - timedelta(days=30)
-
 
 def get_year_to_date():
   """Function that will return year to date net total"""
@@ -120,16 +117,18 @@ def accumulate_transactions(start_date, end_date):
   response = client.Transactions.get(ACCESS_TOKEN,
                                      start_date=start_date.strftime("%Y-%m-%d"),
                                      end_date=end_date.strftime("%Y-%m-%d"),
+                                     count=500,
                                      account_ids=[ACCOUNT_ID])
 
   transactions = response['transactions']
 
   while len(transactions) < response['total_transactions']:
     response = client.Transactions.get(ACCESS_TOKEN,
-                                     start_date=start_date.strftime("%Y-%m-%d"),
-                                     end_date=end_date.strftime("%Y-%m-%d"),
-                                     account_ids=[ACCOUNT_ID],
-                                     offset=len(transactions))
+                                       start_date=start_date.strftime("%Y-%m-%d"),
+                                       end_date=end_date.strftime("%Y-%m-%d"),
+                                       account_ids=[ACCOUNT_ID],
+                                       count=500,
+                                       offset=len(transactions))
 
     transactions.extend(response['transactions'])
 
@@ -167,7 +166,6 @@ def group_by_category(transaction, expense_dict):
   else:
     expense_dict[category] = transaction['amount'];
 
-# TODO: use a regex to remove dates from names
 def group_by_name(transaction, expense_dict):
   """Helper function to help group transactions by shop name"""
   name = transaction["name"] if transaction["name"] is not None else ""
@@ -205,19 +203,6 @@ def pretty_print_data(d):
     sms_body += i[0] + ": " + str(i[1]) + "\n"
 
   return sms_body
-
-def testing():
-  current_date = datetime.now()
-  start_date = datetime(2020, 1, 1)
-  end_date = datetime(current_date.year, current_date.month, current_date.day)
-
-  response = client.Transactions.get(ACCESS_TOKEN,
-                                     start_date=start_date.strftime("%Y-%m-%d"),
-                                     end_date=end_date.strftime("%Y-%m-%d"),
-                                     account_ids=[ACCOUNT_ID],
-                                     count=500)
-  print(response['total_transactions'])
-
 
 if __name__ == "__main__":
   if args.start_date or args.end_date:
