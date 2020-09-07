@@ -38,6 +38,10 @@ parser.add_argument("--categorize",
                     help="If this flag is present then the transactions will be grouped by category.  Otherwise transactions will be grouped by shop name",
                     action="store_true")
 
+parser.add_argument("--year_to_date_net",
+                    help="If this flag is present then print the year to date net total",
+                    action="store_true")
+
 args = parser.parse_args();
 
 EXPENSE_FILE_DIR = os.path.dirname(os.path.realpath(__file__));
@@ -79,6 +83,16 @@ def check_valid_date_range():
     args.start_date = args.end_date - timedelta(days=30)
 
 
+def get_year_to_date():
+  """Function that will return year to date net total"""
+  current_date = datetime.now()
+  start_date = datetime(2020, 1, 1)
+  end_date = datetime(current_date.year, current_date.month, current_date.day)
+  transactions = accumulate_transactions(start_date, end_date)
+  expense_dict = parse_transactions(transactions)
+
+  print(expense_dict[NET_TOTAL_KEY]);
+
 def get_monthly_totals():
   """Helper function that will return month to date totals"""
   # doesn't matter which one we check see check_valid_date_range function
@@ -92,13 +106,7 @@ def get_monthly_totals():
     start_date = datetime(current_date.year, current_date.month, 1);
     end_date = datetime(current_date.year, current_date.month, days_in_month[1])
 
-  response = client.Transactions.get(ACCESS_TOKEN,
-                                     start_date=start_date.strftime("%Y-%m-%d"),
-                                     end_date=end_date.strftime("%Y-%m-%d"),
-                                     account_ids=[ACCOUNT_ID],
-                                     count=500)
-
-  transactions = response['transactions']
+  transactions = accumulate_transactions(start_date, end_date)
   expense_dict = parse_transactions(transactions);
 
   if args.print_totals:
@@ -106,6 +114,26 @@ def get_monthly_totals():
     print(json.dumps(expense_dict, indent=2))
   else:
     send_email(expense_dict)
+
+def accumulate_transactions(start_date, end_date):
+  """Helper function to accumulate all transactions for a date range"""
+  response = client.Transactions.get(ACCESS_TOKEN,
+                                     start_date=start_date.strftime("%Y-%m-%d"),
+                                     end_date=end_date.strftime("%Y-%m-%d"),
+                                     account_ids=[ACCOUNT_ID])
+
+  transactions = response['transactions']
+
+  while len(transactions) < response['total_transactions']:
+    response = client.Transactions.get(ACCESS_TOKEN,
+                                     start_date=start_date.strftime("%Y-%m-%d"),
+                                     end_date=end_date.strftime("%Y-%m-%d"),
+                                     account_ids=[ACCOUNT_ID],
+                                     offset=len(transactions))
+
+    transactions.extend(response['transactions'])
+
+  return transactions;
 
 def parse_transactions(transactions):
   """ Returns an ordered dictionary sorted by category amount (with the exception of the grand total key)"""
@@ -178,7 +206,23 @@ def pretty_print_data(d):
 
   return sms_body
 
+def testing():
+  current_date = datetime.now()
+  start_date = datetime(2020, 1, 1)
+  end_date = datetime(current_date.year, current_date.month, current_date.day)
+
+  response = client.Transactions.get(ACCESS_TOKEN,
+                                     start_date=start_date.strftime("%Y-%m-%d"),
+                                     end_date=end_date.strftime("%Y-%m-%d"),
+                                     account_ids=[ACCOUNT_ID],
+                                     count=500)
+  print(response['total_transactions'])
+
+
 if __name__ == "__main__":
   if args.start_date or args.end_date:
     check_valid_date_range()
-  get_monthly_totals()
+  if args.year_to_date_net:
+    get_year_to_date()
+  else:
+    get_monthly_totals()
