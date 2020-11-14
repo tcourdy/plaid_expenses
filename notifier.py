@@ -42,6 +42,10 @@ parser.add_argument("--year_to_date_net",
                     help="If this flag is present then print the year to date net total",
                     action="store_true")
 
+parser.add_argument("--current_balance",
+                    help="If this flag is present then print the current balance",
+                    action="store_true")
+
 args = parser.parse_args();
 
 EXPENSE_FILE_DIR = os.path.dirname(os.path.realpath(__file__));
@@ -89,6 +93,11 @@ def get_year_to_date():
   expense_dict = parse_transactions(transactions)
 
   print(expense_dict[NET_TOTAL_KEY]);
+
+def get_current_balance():
+  """Print the current balance of the account"""
+  response = client.Accounts.balance.get(ACCESS_TOKEN, account_ids=[ACCOUNT_ID]);
+  print(response["accounts"][0]["balances"]["current"]);
 
 def get_monthly_totals():
   """Helper function that will return month to date totals"""
@@ -197,6 +206,11 @@ def create_email_message(d):
   msg.attach(MIMEText(body, 'plain'))
   return msg
 
+def get_accounts():
+  response = client.Accounts.get(ACCESS_TOKEN)
+  print(json.dumps(response["accounts"], indent=2))
+
+
 def pretty_print_data(d):
   sms_body = "";
   for i in d.items():
@@ -209,5 +223,7 @@ if __name__ == "__main__":
     check_valid_date_range()
   if args.year_to_date_net:
     get_year_to_date()
+  elif args.current_balance:
+    get_current_balance()
   else:
     get_monthly_totals()

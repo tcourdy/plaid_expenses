@@ -1,10 +1,14 @@
 import plaid
+import json
 from flask import Flask
 from flask import render_template
 from flask import request
 from flask import jsonify
 
-with open(EXPENSE_FILE_DIR + "/credentials.json", "r") as creds_file:
+# with open(EXPENSE_FILE_DIR + "/credentials.json", "r") as creds_file:
+#   creds_dict = json.load(creds_file);
+
+with open("credentials.json", "r") as creds_file:
   creds_dict = json.load(creds_file);
 
 PLAID_CLIENT_ID = creds_dict["plaid_client_id"];
