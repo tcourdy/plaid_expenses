@@ -6,7 +6,7 @@ import calendar
 import smtplib
 import argparse
 from collections import OrderedDict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, MINYEAR, MAXYEAR
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -16,6 +16,17 @@ def valid_date_format(date_str):
     return datetime.strptime(date_str, "%Y-%m-%d")
   except ValueError:
     msg = "Not a valid date: '{0}'.".format(date_str)
+    raise argparse.ArgumentTypeError(msg)
+
+def valid_year(year_str):
+  try:
+    year_int = int(year_str)
+    if year_int > MINYEAR and year_int < MAXYEAR:
+      return year_int
+    else:
+      raise ValueError
+  except ValueError:
+    msg = "Not a valid year: '{0}' .".format(year_str)
     raise argparse.ArgumentTypeError(msg)
 
 parser = argparse.ArgumentParser(description="Program that uses the plaid api to scrape your bank account's transactions.  If you don't use print_totals and no send_method is specified this script will get all of the current months transactions and send them via email.  You may specify a start_date and and end_date to get a specific date range of transactions if you want something other than the current month")
@@ -45,6 +56,11 @@ parser.add_argument("--year_to_date_net",
 parser.add_argument("--current_balance",
                     help="If this flag is present then print the current balance",
                     action="store_true")
+
+parser.add_argument("--monthly_totals_for_year",
+                    help="print monthly totals for provided year",
+                    type=valid_year,
+                    action="store")
 
 args = parser.parse_args();
 
@@ -87,12 +103,31 @@ def check_valid_date_range():
 def get_year_to_date():
   """Function that will return year to date net total"""
   current_date = datetime.now()
-  start_date = datetime(2020, 1, 1)
+  start_date = datetime(current_date.year, 1, 1)
   end_date = datetime(current_date.year, current_date.month, current_date.day)
   transactions = accumulate_transactions(start_date, end_date)
   expense_dict = parse_transactions(transactions)
 
   print(expense_dict[NET_TOTAL_KEY]);
+
+def get_monthly_totals_for_year():
+  """Function that will return monthly totals for provided year"""
+  monthly_total_dict = {}
+  for x in range(1, 13):
+    start_end_tuple = get_start_date_end_date_tuple(args.monthly_totals_for_year, x)
+    print(start_end_tuple)
+    transactions = accumulate_transactions(start_end_tuple[0], start_end_tuple[1])
+    expense_dict = parse_transactions(transactions)
+    monthly_total_dict[calendar.month_name[x]] = expense_dict[NET_TOTAL_KEY]
+
+  print(json.dumps(monthly_total_dict, indent=2))
+
+
+def get_start_date_end_date_tuple(year, month):
+  days_in_month = calendar.monthrange(year, month);
+  start_date = datetime(year, month, 1)
+  end_date = datetime(year, month, days_in_month[1])
+  return (start_date, end_date)
 
 def get_current_balance():
   """Print the current balance of the account"""
@@ -101,22 +136,17 @@ def get_current_balance():
 
 def get_monthly_totals():
   """Helper function that will return month to date totals"""
-  # doesn't matter which one we check see check_valid_date_range function
   if args.start_date:
-    start_date = args.start_date
-    end_date = args.end_date
+    start_end_tuple = (args.start_date, args.end_date)
   else:
     current_date = datetime.now();
-    #returns a tuple of (weekday number of first day of month, num_days_in_month)
-    days_in_month = calendar.monthrange(current_date.year, current_date.month);
-    start_date = datetime(current_date.year, current_date.month, 1);
-    end_date = datetime(current_date.year, current_date.month, days_in_month[1])
+    start_end_tuple= get_start_date_end_date_tuple(current_date.year, current_date.month)
 
-  transactions = accumulate_transactions(start_date, end_date)
+  transactions = accumulate_transactions(start_end_tuple[0], start_end_tuple[1])
   expense_dict = parse_transactions(transactions);
 
   if args.print_totals:
-    print("Transactions for %s -  %s" %(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
+    print("Transactions for %s -  %s" %(start_end_tuple[0].strftime("%Y-%m-%d"), start_end_tuple[1].strftime("%Y-%m-%d")))
     print(json.dumps(expense_dict, indent=2))
   else:
     send_email(expense_dict)
@@ -225,5 +255,8 @@ if __name__ == "__main__":
     get_year_to_date()
   elif args.current_balance:
     get_current_balance()
+  elif args.monthly_totals_for_year:
+    get_monthly_totals_for_year()
   else:
+    #get_accounts()
     get_monthly_totals()
