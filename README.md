@@ -1,4 +1,4 @@
-Simple python script that uses the plaid api to send an sms message with the amount of money you have spent broken down by category (keeps a running total for each month).  Note that you will need a plaid developer account to use this.  I set up a dummy gmail account and turned off secure features in order to successfully send an email from this python script.
+Simple python script that uses the plaid api to send an sms message with the amount of money you have spent broken down by category (keeps a running total for each month).  Note that you will need a plaid developer account to use this.
 
 Requirements:
 - python3
@@ -9,9 +9,6 @@ Requirements:
   "plaid_client_id": "",
   "plaid_public_key": "",
   "plaid_secret": "",
-  "email_address_from": "",
-  "email_address_from_password": "",
-  "email_address_to": "",
   "account_id": ""
   }
   ```

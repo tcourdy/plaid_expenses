@@ -7,9 +7,6 @@ import smtplib
 import argparse
 from collections import OrderedDict
 from datetime import datetime, timedelta, MINYEAR, MAXYEAR
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
 
 def valid_date_format(date_str):
   try:
@@ -29,11 +26,7 @@ def valid_year(year_str):
     msg = "Not a valid year: '{0}' .".format(year_str)
     raise argparse.ArgumentTypeError(msg)
 
-parser = argparse.ArgumentParser(description="Program that uses the plaid api to scrape your bank account's transactions.  If you don't use print_totals and no send_method is specified this script will get all of the current months transactions and send them via email.  You may specify a start_date and and end_date to get a specific date range of transactions if you want something other than the current month")
-
-parser.add_argument("--print_totals",
-                    help="don't send an sms and instead print transactions to the console",
-                    action="store_true")
+parser = argparse.ArgumentParser(description="Program that uses the plaid api to scrape your bank account's transactions.  You may specify a start_date and and end_date to get a specific date range of transactions if you want something other than the current month")
 
 parser.add_argument("--start_date",
                     help="Format YYYY-MM-DD. The start date of the range of transactions you would like.  If start_date is provided but end_date is not then the default end_date will be 30 days from start_date.  If both start_date and end_date are provided start_date must come before end_date",
@@ -75,9 +68,6 @@ PLAID_SECRET = creds_dict["plaid_secret"];
 PLAID_PRODUCTS = "transactions";
 PLAID_ENVIRONMENT = "development";
 
-EMAIL_ADDRESS_FROM = creds_dict["email_address_from"];
-EMAIL_ADDRESS_FROM_PASSWORD = creds_dict["email_address_from_password"];
-EMAIL_ADDRESS_TO = creds_dict["email_address_to"];
 ACCOUNT_ID = creds_dict["account_id"];
 
 NET_TOTAL_KEY = "Net Total";
@@ -112,13 +102,14 @@ def get_year_to_date():
 
 def get_monthly_totals_for_year():
   """Function that will return monthly totals for provided year"""
-  monthly_total_dict = {}
+  monthly_total_dict = {NET_TOTAL_KEY: 0}
+  print("Calculating totals for each month...")
   for x in range(1, 13):
     start_end_tuple = get_start_date_end_date_tuple(args.monthly_totals_for_year, x)
-    print(start_end_tuple)
     transactions = accumulate_transactions(start_end_tuple[0], start_end_tuple[1])
     expense_dict = parse_transactions(transactions)
     monthly_total_dict[calendar.month_name[x]] = expense_dict[NET_TOTAL_KEY]
+    monthly_total_dict[NET_TOTAL_KEY] = monthly_total_dict[NET_TOTAL_KEY] + expense_dict[NET_TOTAL_KEY]
 
   print(json.dumps(monthly_total_dict, indent=2))
 
@@ -145,11 +136,8 @@ def get_monthly_totals():
   transactions = accumulate_transactions(start_end_tuple[0], start_end_tuple[1])
   expense_dict = parse_transactions(transactions);
 
-  if args.print_totals:
-    print("Transactions for %s -  %s" %(start_end_tuple[0].strftime("%Y-%m-%d"), start_end_tuple[1].strftime("%Y-%m-%d")))
-    print(json.dumps(expense_dict, indent=2))
-  else:
-    send_email(expense_dict)
+  print("Transactions for %s -  %s" %(start_end_tuple[0].strftime("%Y-%m-%d"), start_end_tuple[1].strftime("%Y-%m-%d")))
+  print(json.dumps(expense_dict, indent=2))
 
 def accumulate_transactions(start_date, end_date):
   """Helper function to accumulate all transactions for a date range"""
@@ -219,34 +207,9 @@ def sort_dict_by_value(d):
   """Helper function that sorts by category amount(ie: sort by the values of the dictionary passed in)"""
   return OrderedDict(sorted(d.items(), key=lambda x: x[1]))
 
-def send_email(data):
-  server = smtplib.SMTP('smtp.gmail.com', 587)
-  server.starttls()
-  server.login(EMAIL_ADDRESS_FROM, EMAIL_ADDRESS_FROM_PASSWORD)
-  message = create_email_message(data)
-  server.send_message(message)
-  server.quit()
-
-def create_email_message(d):
-  msg = MIMEMultipart()
-  msg['From']=EMAIL_ADDRESS_FROM
-  msg['To']=EMAIL_ADDRESS_TO
-  msg['Subject']="Yesterday's Expenses"
-  body = pretty_print_data(d);
-  msg.attach(MIMEText(body, 'plain'))
-  return msg
-
 def get_accounts():
   response = client.Accounts.get(ACCESS_TOKEN)
   print(json.dumps(response["accounts"], indent=2))
-
-
-def pretty_print_data(d):
-  sms_body = "";
-  for i in d.items():
-    sms_body += i[0] + ": " + str(i[1]) + "\n"
-
-  return sms_body
 
 if __name__ == "__main__":
   if args.start_date or args.end_date:
