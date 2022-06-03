@@ -1,5 +1,9 @@
 import re
 import plaid
+from plaid.api import plaid_api
+from plaid.model.accounts_get_request import AccountsGetRequest
+from plaid.model.transactions_get_request import TransactionsGetRequest
+from plaid.model.transactions_get_request_options import TransactionsGetRequestOptions
 import json
 import os
 import calendar
@@ -63,17 +67,26 @@ with open(EXPENSE_FILE_DIR + "/credentials.json", "r") as creds_file:
   creds_dict = json.load(creds_file);
 
 PLAID_CLIENT_ID = creds_dict["plaid_client_id"];
-PLAID_PUBLIC_KEY = creds_dict["plaid_public_key"];
 PLAID_SECRET = creds_dict["plaid_secret"];
 PLAID_PRODUCTS = "transactions";
-PLAID_ENVIRONMENT = "development";
+PLAID_ENVIRONMENT = plaid.Environment.Development
 
 ACCOUNT_ID = creds_dict["account_id"];
 
 NET_TOTAL_KEY = "Net Total";
 TOTAL_EXPENSES_KEY = "Total Expenses";
 
-client = plaid.Client(PLAID_CLIENT_ID, PLAID_SECRET, PLAID_PUBLIC_KEY, PLAID_ENVIRONMENT)
+configuration = plaid.Configuration(
+  host = PLAID_ENVIRONMENT,
+  api_key = {
+    'clientId': PLAID_CLIENT_ID,
+    'secret': PLAID_SECRET
+  }
+)
+
+api_client = plaid.ApiClient(configuration)
+client = plaid_api.PlaidApi(api_client)
+
 with open(EXPENSE_FILE_DIR + "/access_token.txt", "r") as f:
   ACCESS_TOKEN = f.read()
 
@@ -113,7 +126,6 @@ def get_monthly_totals_for_year():
 
   print(json.dumps(monthly_total_dict, indent=2))
 
-
 def get_start_date_end_date_tuple(year, month):
   days_in_month = calendar.monthrange(year, month);
   start_date = datetime(year, month, 1)
@@ -122,7 +134,8 @@ def get_start_date_end_date_tuple(year, month):
 
 def get_current_balance():
   """Print the current balance of the account"""
-  response = client.Accounts.balance.get(ACCESS_TOKEN, account_ids=[ACCOUNT_ID]);
+  request = AccountsBalanceGetRequest(access_token=ACCESS_TOKEN, options={account_ids:[ACCOUNT_ID]})
+  response = client.accounts_balance_get(request)
   print(response["accounts"][0]["balances"]["current"]);
 
 def get_monthly_totals():
@@ -136,26 +149,36 @@ def get_monthly_totals():
   transactions = accumulate_transactions(start_end_tuple[0], start_end_tuple[1])
   expense_dict = parse_transactions(transactions);
 
-  print("Transactions for %s -  %s" %(start_end_tuple[0].strftime("%Y-%m-%d"), start_end_tuple[1].strftime("%Y-%m-%d")))
+  expense_dict["DATE_RANGE"] = "%s TO %s" %(start_end_tuple[0].strftime("%Y-%m-%d"), start_end_tuple[1].strftime("%Y-%m-%d"))
+
   print(json.dumps(expense_dict, indent=2))
 
 def accumulate_transactions(start_date, end_date):
   """Helper function to accumulate all transactions for a date range"""
-  response = client.Transactions.get(ACCESS_TOKEN,
-                                     start_date=start_date.strftime("%Y-%m-%d"),
-                                     end_date=end_date.strftime("%Y-%m-%d"),
-                                     count=500,
-                                     account_ids=[ACCOUNT_ID])
+  request = TransactionsGetRequest(
+    access_token = ACCESS_TOKEN,
+    start_date = start_date.date(),
+    end_date = end_date.date(),
+    options = TransactionsGetRequestOptions(
+      count = 500,
+      account_ids = [ACCOUNT_ID]
+    )
+  )
 
+  response = client.transactions_get(request)
   transactions = response['transactions']
 
   while len(transactions) < response['total_transactions']:
-    response = client.Transactions.get(ACCESS_TOKEN,
-                                       start_date=start_date.strftime("%Y-%m-%d"),
-                                       end_date=end_date.strftime("%Y-%m-%d"),
-                                       account_ids=[ACCOUNT_ID],
-                                       count=500,
-                                       offset=len(transactions))
+    request = TransactionsGetRequest(
+      access_token = ACCESS_TOKEN,
+      start_date = start_date.strftime("%Y-%m-%d"),
+      end_date = end_date.strftime("%Y-%m-%d"),
+      options = TransactionsGetRequestOptions(
+        count = 500,
+        account_ids = [ACCOUNT_ID]
+      )
+    )
+    response = client.transactions_get(request)
 
     transactions.extend(response['transactions'])
 
@@ -208,8 +231,9 @@ def sort_dict_by_value(d):
   return OrderedDict(sorted(d.items(), key=lambda x: x[1]))
 
 def get_accounts():
-  response = client.Accounts.get(ACCESS_TOKEN)
-  print(json.dumps(response["accounts"], indent=2))
+  request = AccountsGetRequest(access_token=ACCESS_TOKEN)
+  response = client.accounts_get(request)
+  print(json.dumps(response.to_dict()["accounts"], indent=2))
 
 if __name__ == "__main__":
   if args.start_date or args.end_date:

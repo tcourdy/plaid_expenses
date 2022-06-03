@@ -1,2 +1,2 @@
-plaid-python
-flask
+plaid-python==9.4.0
+flask==1.1.2

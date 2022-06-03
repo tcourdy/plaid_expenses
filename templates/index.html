@@ -1,65 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Plaid Quickstart Example</title>
-<link rel="stylesheet" href="https://threads.plaid.com/threads.css">
+  <head>
+    <meta charset="UTF-8">
+    <title>Plaid Quickstart Example</title>
+    <link rel="stylesheet" href="https://threads.plaid.com/threads.css">
 
-<link rel="stylesheet" type="text/css" href="/static/style.css">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-  <main class="main">
-    <div class="grid">
-      <div class="grid__column grid__column--is-twelve-columns">
-        <div id="banner" class="everpresent-content">
-          <h1 class="everpresent-content__heading">Transaction watcher</h1>
-        </div>
+    <link rel="stylesheet" type="text/css" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body>
+    <main class="main">
+      <div class="grid">
+        <div class="grid__column grid__column--is-twelve-columns">
+          <div id="banner" class="everpresent-content">
+            <h1 class="everpresent-content__heading">Transaction watcher</h1>
+          </div>
 
-        <div id="container" class="initial-view">
-          <p class="initial-view__description">
-            Click the button below to open a list of Institutions. After you select one, you’ll be guided through an authentication process. Upon completion, a public_token will be passed back to the server and exchanged for access_token.
-          </p>
-          <button id="link-btn" class="button button--is-primary">Connect with Plaid</button>
-        </div>
+          <div id="container" class="initial-view">
+            <p class="initial-view__description">
+              Click the button below to open a list of Institutions. After you select one, you’ll be guided through an authentication process. Upon completion, a public_token will be passed back to the server and exchanged for access_token.
+            </p>
+            <button id="link-button" class="button button--is-primary">Connect with Plaid</button>
+          </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.3/jquery.min.js"></script>
-  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
-  <script>
-  (function($) {
-    var products = '{{ plaid_products }}'.split(',');
-    if (products.includes('assets')) {
-      $('#assets').show();
-    }
-    var handler = Plaid.create({
-      apiVersion: 'v2',
-      clientName: 'Plaid Quickstart',
-      env: '{{ plaid_environment }}',
-      product: products,
-      key: '{{ plaid_public_key }}',
-      // webhook: 'https://your-domain.tld/plaid-webhook',
-      onSuccess: function(public_token) {
-        $.post('/get_access_token', {
-          public_token: public_token
-        }, function(data) {
-          $('#container').fadeOut('fast', function() {
-            $('#item_id').text(data.item_id);
-            $('#access_token').text(data.access_token);
-            $('#intro').hide();
-            $('#app, #steps').fadeIn('slow');
-          });
-        });
-      },
-    });
-    $('#link-btn').on('click', function(e) {
-      handler.open();
-    });
-  })(jQuery);
-function qs(key) {
-    key = key.replace(/[*+?^$.\[\]{}()|\\\/]/g, "\\$&"); // escape RegEx meta chars
-    var match = location.search.match(new RegExp("[?&]"+key+"=([^&]+)(&|$)"));
-    return match && decodeURIComponent(match[1].replace(/\+/g, " "));
-}
-  </script>
-</body>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+          <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+
+          <script type="text/javascript">
+           (async function() {
+             const fetchLinkToken = async () => {
+               const response = await fetch('/create_link_token', { method: 'POST' });
+               const responseJSON = await response.json();
+
+               return responseJSON.link_token;
+             };
+
+             const configs = {
+
+               // 1. Pass a new link_token to Link.
+               token: await fetchLinkToken(),
+
+               onSuccess: async function(public_token, metadata) {
+                 // 2a. Send the public_token to your app server.
+                 // The onSuccess function is called when the user has successfully
+                 // authenticated and selected an account to use.
+                 await fetch('/exchange_public_token', {
+                   method: 'POST',
+                   headers: {
+                     'Content-Type': 'application/json'
+                   },
+                   body: JSON.stringify({ "public_token": public_token }),
+                 });
+               },
+
+               onExit: async function(err, metadata) {
+
+                 // 2b. Gracefully handle the invalid link token error. A link token
+                 // can become invalidated if it expires, has already been used
+                 // for a link session, or is associated with too many invalid logins.
+
+                 if (err != null && err.error_code === 'INVALID_LINK_TOKEN') {
+
+                   linkHandler.destroy();
+
+                   linkHandler = Plaid.create({
+                     ...configs,
+                     token: await fetchLinkToken(),
+                   });
+
+                 }
+
+                 if (err != null) {
+
+                   // Handle any other types of errors.
+
+                 }
+
+                 // metadata contains information about the institution that the
+
+                 // user selected and the most recent API request IDs.
+
+                 // Storing this information can be helpful for support.
+
+               },
+
+             };
+
+             var linkHandler = Plaid.create(configs);
+
+             document.getElementById('link-button').onclick = function() {
+               linkHandler.open();
+             };
+           })();
+          </script>
+  </body>
 </html>
